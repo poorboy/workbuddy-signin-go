@@ -2,8 +2,7 @@
 
 WorkBuddy 每日签到与成长中心的**无 UI 命令行工具**，纯 Go 标准库实现。
 
-本项目是 [135790135790a/WorkBuddy-](https://github.com/135790135790a/WorkBuddy-)（Python 原版）的 Go 重写版。重写的出发点很直接：**不想折腾 Python 运行环境**——不用装 Python 3、不用找 `pythonw.exe`、不用管 venv / 依赖 / 脚本绝对路径，构建出一个静态 exe 后复制到任意目录就能跑，直接挂进系统计划任务即可。
-
+本项目是 [135790135790a/WorkBuddy-](https://github.com/135790135790a/WorkBuddy-)（Python 原版）的 Go 重写版。重写的出发点很直接： **只想搞一个定时任务自动签到**
 > 已保留与 Python 版一致的核心能力：每日签到、成长中心全套、加密凭据解密、命令集、环境变量、JSON 输出、日志格式和凭据发现顺序。
 >
 > 未移植 Python 版的托盘、HTML 报告、消息推送、历史/心跳/自愈/监控等可选增强。**如果你需要这些功能，请使用[原版](https://github.com/135790135790a/WorkBuddy-)。**
@@ -90,11 +89,13 @@ workbuddy-signin.exe auto --no-pause
 workbuddy-signin.exe --no-pause status
 ```
 
-开关可以写在命令前后，并接受这些别名：
+开关可以写在命令前后，忽略大小写和 `-` / `_`，并接受这些别名：
 
 ```text
 --no-pause  --nopause  -no-pause  nopause  nopase
 ```
+
+常见误拼（如 `nppause`、`npause`）也会被识别为 `--no-pause`，不必担心多打或少打一个字母。
 
 - `silent*` 命令本来就**不会**暂停，加不加 `--no-pause` 都一样。
 - 优先级：`--no-pause` > `silent*` > `WORKBUDDY_PAUSE` 环境变量 > 交互控制台检测。
