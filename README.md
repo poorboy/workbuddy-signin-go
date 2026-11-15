@@ -3,11 +3,11 @@
 WorkBuddy 每日签到与成长中心的**无 UI 命令行工具**，纯 Go 标准库实现。
 
 本项目是 [135790135790a/WorkBuddy-](https://github.com/135790135790a/WorkBuddy-)（Python 原版）的 Go 重写版。重写的出发点很直接： **只想搞一个定时任务自动签到**
-> 已保留与 Python 版一致的核心能力：每日签到、成长中心全套、加密凭据解密、命令集、环境变量、JSON 输出、日志格式和凭据发现顺序。
+> 已保留与 Python 版一致的核心能力：每日签到、成长中心全套、加密凭据解密、命令集、环境变量、JSON 输出、日志格式和凭据发现顺序；终端里额外提供中文美化输出。
 >
 > 未移植 Python 版的托盘、HTML 报告、消息推送、历史/心跳/自愈/监控等可选增强。**如果你需要这些功能，请使用[原版](https://github.com/135790135790a/WorkBuddy-)。**
 
-读取本机 WorkBuddy 桌面端已登录的凭据，自动完成签到领取，并按需执行成长中心里的旅行、任务、补登、连登兑换、盲盒等操作，最后输出一行 JSON 结果。
+读取本机 WorkBuddy 桌面端已登录的凭据，自动完成签到领取，并按需执行成长中心里的旅行、任务、补登、连登兑换、盲盒等操作，最后输出结果：终端里是中文美化的信息块，重定向 / 管道里是单行 JSON。
 
 > 非官方工具，与腾讯 / WorkBuddy 官方无关。请遵守服务条款，风险自负。
 
@@ -190,20 +190,34 @@ powershell -ExecutionPolicy Bypass -File .\src\build-release.ps1 -Version v0.1.0
 ### 运行
 
 ```bat
-workbuddy-signin.exe                    REM 签到 + 成长中心，打印一行 JSON
+workbuddy-signin.exe                    REM 签到 + 成长中心；终端里显示美化结果
 workbuddy-signin.exe doctor             REM 先确认凭据能被正确读取
 workbuddy-signin.exe silent             REM 定时任务用：只写日志
 workbuddy-signin.exe auto --no-pause    REM 要 stdout 但不等待按键
+workbuddy-signin.exe auto --json        REM 强制单行 JSON（脚本解析）
 ```
 
 ## 输出与日志
 
-- 非 `silent*` 命令把**一行 JSON** 写到 stdout，便于调度脚本直接解析；提示信息只写 stderr。
+- stdout 连着终端时，非 `silent*` 命令输出**美化后的中文分块**，便于直接阅读；stdout 被重定向或接到管道时自动退回**单行 JSON**，调度脚本不需要改解析逻辑。
+- 用 `--json`（或 `WORKBUDDY_OUTPUT=json`）可以强制单行 JSON；用 `--pretty`（或 `WORKBUDDY_OUTPUT=pretty`）可以强制美化。`--json` 优先级高于 `--pretty`。
 - `silent*` 命令不写 stdout（无窗口运行时 stdout 可能是黑洞），结果直接进日志。
 - 任何命令的结果为 `ERROR` 时，即使已经打印到 stdout，也会**额外落盘**一份日志，避免失败记录丢失。
-- 日志默认写在可执行文件同目录的 `signin.log`，可用 `WORKBUDDY_SIGNIN_LOG` 改路径；自定义路径不可写时自动回退到可执行文件同目录。
+- 日志始终是单行 JSON（`[时间] {JSON}`），不受美化开关影响；默认写在可执行文件同目录的 `signin.log`，可用 `WORKBUDDY_SIGNIN_LOG` 改路径；自定义路径不可写时自动回退到可执行文件同目录。
 
-示例：
+终端里的美化输出示例：
+
+```text
+[OK] 今日已签过（今日 +100，连续 44 天，累计 4400 积分）  ·  ALREADY
+
+  今日积分  100
+  连续签到  44 天
+  累计积分  4400
+  连签日    否
+  成长中心  Buddy 旅行中（咖啡馆，约 35 分钟后回）（能量 3，连签 2 天）
+```
+
+重定向到文件或管道时仍是单行 JSON：
 
 ```json
 {"result":"CLAIMED","report":"成功领取 10 积分（连续 3 天，累计 120 积分）","credit":10,"streak_days":3,"total_credits":120,"growth":"...","growth_result":"GROWTH","needs_attention":false}
@@ -219,6 +233,7 @@ workbuddy-signin.exe auto --no-pause    REM 要 stdout 但不等待按键
 | `WORKBUDDY_EXE` | 指定 WorkBuddy 客户端可执行文件，用于解密 `sym-v1` 加密凭据 |
 | `WORKBUDDY_BUDGET_SECONDS` | 本次运行的时间预算（秒）。默认 420、上限 540；轮询类命令默认 180、上限 240。超出上限会被夹紧并在输出中带 `config_warning` |
 | `WORKBUDDY_SIGNIN_LOG` | 自定义日志路径 |
+| `WORKBUDDY_OUTPUT` | Go 版新增。`pretty/text/human` 强制美化；`json/compact/raw` 强制单行 JSON。未设置时按 stdout 是否连着终端自动判断；命令行 `--pretty` / `--json` 优先级更高 |
 | `WORKBUDDY_PAUSE` | Go 版新增。`1/true/yes/on` 强制结束前等待按键；`0/false/no/off` 禁止等待。未设置时按是否为交互式控制台自动判断。命令行 `--no-pause` 优先级更高 |
 | `WORKBUDDY_GROWTH_LOG_EMPTY` | 设为 `1` 时，`silent-poll` / `silent-growth` 的空跑也写日志 |
 | `WORKBUDDY_UPX` | 构建时 UPX 可执行文件完整路径 |
@@ -278,7 +293,7 @@ Endpoint 取凭据里的 `auth.endpoint`，缺省为 `https://copilot.tencent.co
 
 ### 5. 输出
 
-成功或失败都收敛成一行 JSON；`needs_attention` 标记需要人工关注的异常。`silent*` 命令不写 stdout，只追加日志；结果为 `ERROR` 时两条通道都走，避免失败记录丢失。
+成功或失败都收敛成一条结果：终端里是带中文标签的美化分块，重定向 / 管道里是单行 JSON；`needs_attention` 标记需要人工关注的异常。`silent*` 命令不写 stdout，只追加日志；结果为 `ERROR` 时两条通道都走，避免失败记录丢失。日志永远保持单行 JSON。
 
 ## 退出码
 
@@ -401,6 +416,7 @@ Unregister-ScheduledTask -TaskName "WorkBuddyGrowthPoll" -Confirm:$false
    ├─ auth_other.go            # 非 Windows 平台的对应实现
    ├─ helper.go                # 内嵌 JS 凭据助手与子进程管理
    ├─ emit.go                  # stdout / 日志唯一输出通道
+   ├─ pretty.go                # 终端美化输出（中文分块）
    ├─ pause.go                 # 交互式结束前暂停
    ├─ pause_windows.go         # Windows 按键实现
    ├─ pause_other.go           # 其它平台按键实现
@@ -419,7 +435,7 @@ go vet ./...
 go test ./... -count=1
 ```
 
-测试覆盖命令分发、时间预算、签到各分支、成长中心各模块、凭据解析与加密信封校验、输出与暂停行为等；端到端用例通过本地 `httptest` 服务模拟接口，不访问真实网络。当前共 6 个测试文件、40 个测试函数，全部离线运行。
+测试覆盖命令分发、时间预算、签到各分支、成长中心各模块、凭据解析与加密信封校验、输出美化与暂停行为等；端到端用例通过本地 `httptest` 服务模拟接口，不访问真实网络。当前共 7 个测试文件、47 个测试函数，全部离线运行。
 
 ## 安全与隐私
 
