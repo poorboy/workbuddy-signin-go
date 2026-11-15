@@ -2,7 +2,7 @@
 //
 // CLI 程序双击运行时控制台会一闪而过，看不到那一行结果；因此在输出之后
 // 等一次按键。但无人值守场景绝不能等输入：定时任务、日志重定向、silent
-// 命令一律直接退出，否则计划任务会挂死到超时。
+// 命令、以及带 --no-pause 的运行一律直接退出，否则计划任务会挂死到超时。
 package main
 
 import (
@@ -13,8 +13,11 @@ import (
 
 // pauseMode 判断本次运行结束时是否需要等待按键。
 //
-// 优先级：silent 命令（硬保护）> WORKBUDDY_PAUSE 显式开关 > 交互控制台检测。
+// 优先级：命令行 --no-pause（最高）> silent 命令（硬保护）> WORKBUDDY_PAUSE 显式开关 > 交互控制台检测。
 func pauseMode(action string) bool {
+	if noPauseFlag {
+		return false
+	}
 	if strings.HasPrefix(action, "silent") {
 		return false
 	}

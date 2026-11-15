@@ -32,6 +32,7 @@ var (
 	budgetSeconds   = defaultBudgetSeconds
 	configWarning   string
 	sensitiveValues []string
+	noPauseFlag     bool
 )
 
 var attentionResults = map[string]bool{
@@ -50,10 +51,7 @@ var (
 )
 
 func main() {
-	action := "auto"
-	if len(os.Args) > 1 {
-		action = os.Args[1]
-	}
+	action := parseArgs(os.Args[1:])
 	code := func() (code int) {
 		defer func() {
 			if r := recover(); r != nil {
@@ -81,6 +79,41 @@ func panicTypeName(r any) string {
 		return t.String()
 	}
 	return "unknown"
+}
+
+// noPauseArgs 是命令行里的「执行完立即退出」开关。可以写在命令前后：
+//
+//	workbuddy-signin.exe auto --no-pause
+//	workbuddy-signin.exe nopause
+//
+// nopase 是常见误拼，一并接受；silent 类命令本来就暂停，加不加都一样。
+func isNoPauseArg(arg string) bool {
+	switch strings.ToLower(strings.TrimSpace(arg)) {
+	case "nopause", "nopase", "no-pause",
+		"--nopause", "--nopase", "--no-pause",
+		"-nopause", "-nopase", "-no-pause":
+		return true
+	}
+	return false
+}
+
+// parseArgs 解析「命令 + 可选开关」。第一个非开关参数作为命令，
+// 未给命令时回落 auto；多余的位置参数保持旧行为，忽略。
+func parseArgs(args []string) string {
+	action := ""
+	for _, arg := range args {
+		if isNoPauseArg(arg) {
+			noPauseFlag = true
+			continue
+		}
+		if action == "" {
+			action = arg
+		}
+	}
+	if action == "" {
+		return "auto"
+	}
+	return action
 }
 
 // envFlag 对应 Python _env_flag：空串与 0/false/no/off 一律视为关。

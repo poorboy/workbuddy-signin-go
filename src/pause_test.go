@@ -99,3 +99,41 @@ func TestPauseBeforeExitNeverBlocksWhenRedirected(t *testing.T) {
 		t.Fatal("非交互运行被暂停逻辑阻塞")
 	}
 }
+
+// 命令行 --no-pause 的解析：可写在命令前后，也接受 nopause / nopase 别名。
+func TestParseArgsNoPause(t *testing.T) {
+	cases := []struct {
+		args    []string
+		action  string
+		noPause bool
+	}{
+		{nil, "auto", false},
+		{[]string{"silent"}, "silent", false},
+		{[]string{"nopause"}, "auto", true},
+		{[]string{"nopase"}, "auto", true},
+		{[]string{"--no-pause"}, "auto", true},
+		{[]string{"auto", "--nopause"}, "auto", true},
+		{[]string{"--no-pause", "growth"}, "growth", true},
+		{[]string{"growth", "-no-pause"}, "growth", true},
+		{[]string{"status", "all"}, "status", false},
+	}
+	for _, c := range cases {
+		noPauseFlag = false
+		got := parseArgs(c.args)
+		if got != c.action || noPauseFlag != c.noPause {
+			t.Errorf("parseArgs(%q) = (%q, %v)，期望 (%q, %v)",
+				c.args, got, noPauseFlag, c.action, c.noPause)
+		}
+	}
+	noPauseFlag = false
+}
+
+// --no-pause 必须压过 WORKBUDDY_PAUSE=1，否则计划任务仍会等待按键。
+func TestNoPauseOverridesEnv(t *testing.T) {
+	setEnv(t, "WORKBUDDY_PAUSE", "1")
+	noPauseFlag = true
+	t.Cleanup(func() { noPauseFlag = false })
+	if pauseMode("auto") {
+		t.Fatal("--no-pause 应覆盖 WORKBUDDY_PAUSE=1")
+	}
+}
