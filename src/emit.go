@@ -28,19 +28,28 @@ func emit(out map[string]any, action string) {
 	if configWarning != "" {
 		out["config_warning"] = configWarning
 	}
-	payload := dumpJSON(out)
-	for _, s := range sensitiveValues {
-		if s != "" {
-			payload = strings.ReplaceAll(payload, s, "[REDACTED]")
-		}
-	}
+	payload := redactSensitive(dumpJSON(out))
 	result, _ := out["result"].(string)
 	if !strings.HasPrefix(action, "silent") {
-		if _, err := fmt.Fprintln(os.Stdout, payload); err == nil && result != "ERROR" {
+		text := payload
+		if wantPretty(action) {
+			text = redactSensitive(renderPretty(out))
+		}
+		if _, err := fmt.Fprintln(os.Stdout, text); err == nil && result != "ERROR" {
 			return
 		}
 	}
 	writeSigninLog(payload)
+}
+
+// redactSensitive 把凭据、token 等敏感值从任何输出通道里抹掉。
+func redactSensitive(s string) string {
+	for _, secret := range sensitiveValues {
+		if secret != "" {
+			s = strings.ReplaceAll(s, secret, "[REDACTED]")
+		}
+	}
+	return s
 }
 
 func dumpJSON(v any) string {

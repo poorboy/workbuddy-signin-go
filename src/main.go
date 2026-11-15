@@ -34,6 +34,8 @@ var (
 	configWarning   string
 	sensitiveValues []string
 	noPauseFlag     bool
+	prettyFlag      bool
+	jsonFlag        bool
 )
 
 var attentionResults = map[string]bool{
@@ -101,11 +103,35 @@ func isNoPauseArg(arg string) bool {
 	return noPauseRe.MatchString(s)
 }
 
+// isOutputStyleArg 解析输出格式开关，返回是否已消费该参数。
+//
+//	--pretty / pretty / text   强制美化（给人看）
+//	--json / json / compact    强制单行 JSON（给脚本看）
+//	--no-pretty                同 --json
+func isOutputStyleArg(arg string) bool {
+	s := strings.ToLower(strings.TrimSpace(arg))
+	s = strings.TrimLeft(s, "-")
+	s = strings.ReplaceAll(s, "_", "-")
+	switch s {
+	case "pretty", "text", "human":
+		prettyFlag = true
+		return true
+	case "json", "compact", "raw", "no-pretty":
+		jsonFlag = true
+		return true
+	}
+	return false
+}
+
 // parseArgs 解析「命令 + 可选开关」。第一个非开关参数作为命令，
 // 未给命令时回落 auto；多余的位置参数保持旧行为，忽略。
 func parseArgs(args []string) string {
 	action := ""
+	prettyFlag, jsonFlag = false, false
 	for _, arg := range args {
+		if isOutputStyleArg(arg) {
+			continue
+		}
 		if isNoPauseArg(arg) {
 			noPauseFlag = true
 			continue
