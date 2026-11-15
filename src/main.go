@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -86,15 +87,18 @@ func panicTypeName(r any) string {
 //	workbuddy-signin.exe auto --no-pause
 //	workbuddy-signin.exe nopause
 //
-// nopase 是常见误拼，一并接受；silent 类命令本来就暂停，加不加都一样。
+// 解析时去掉 - / _ 并忽略大小写；常见误拼（nppause、npause、nopase 等）
+// 也按 no-pause 处理，避免计划任务因为拼错一个字母而卡在按键提示上。
+var noPauseRe = regexp.MustCompile(`^n*o*p+a*u*s*e?$`)
+
 func isNoPauseArg(arg string) bool {
-	switch strings.ToLower(strings.TrimSpace(arg)) {
-	case "nopause", "nopase", "no-pause",
-		"--nopause", "--nopase", "--no-pause",
-		"-nopause", "-nopase", "-no-pause":
-		return true
+	s := strings.ToLower(strings.TrimSpace(arg))
+	s = strings.NewReplacer("-", "", "_", "").Replace(s)
+	// 长度下限挡掉 n / no / nop 这类过短输入，避免误判。
+	if len(s) < 5 || len(s) > 16 {
+		return false
 	}
-	return false
+	return noPauseRe.MatchString(s)
 }
 
 // parseArgs 解析「命令 + 可选开关」。第一个非开关参数作为命令，
@@ -176,7 +180,8 @@ func runAction(action string) int {
 	if !contains(knownActions, action) {
 		emit(map[string]any{
 			"result": "ERROR",
-			"report": "未知命令：" + action + "（可用：" + strings.Join(knownActions, " / ") + "）",
+			"report": "未知命令：" + action + "（可用：" + strings.Join(knownActions, " / ") +
+				"）；如需执行完立即退出，请加 --no-pause",
 		}, action)
 		return 2
 	}

@@ -100,7 +100,7 @@ func TestPauseBeforeExitNeverBlocksWhenRedirected(t *testing.T) {
 	}
 }
 
-// 命令行 --no-pause 的解析：可写在命令前后，也接受 nopause / nopase 别名。
+// 命令行 --no-pause 的解析：可写在命令前后，也接受 nopause / nopase 及常见误拼。
 func TestParseArgsNoPause(t *testing.T) {
 	cases := []struct {
 		args    []string
@@ -111,11 +111,16 @@ func TestParseArgsNoPause(t *testing.T) {
 		{[]string{"silent"}, "silent", false},
 		{[]string{"nopause"}, "auto", true},
 		{[]string{"nopase"}, "auto", true},
+		{[]string{"nppause"}, "auto", true},
+		{[]string{"npause"}, "auto", true},
+		{[]string{"NO-PAUSE"}, "auto", true},
+		{[]string{"no_pause"}, "auto", true},
 		{[]string{"--no-pause"}, "auto", true},
 		{[]string{"auto", "--nopause"}, "auto", true},
 		{[]string{"--no-pause", "growth"}, "growth", true},
 		{[]string{"growth", "-no-pause"}, "growth", true},
 		{[]string{"status", "all"}, "status", false},
+		{[]string{"nope"}, "nope", false},
 	}
 	for _, c := range cases {
 		noPauseFlag = false
